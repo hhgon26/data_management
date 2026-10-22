@@ -3,12 +3,12 @@ import streamlit.components.v1 as components
 
 # 페이지 설정
 st.set_page_config(
-    page_title="밀폐공간 안전 데이터 수집기", 
+    page_title="밀폐공간 안전 센서 수집기 (가속도+각속도)", 
     page_icon="🛡️", 
     layout="centered"
 )
 
-# 🛠️ [안전한 숨김 스타일] 화면 전체를 날리지 않고 상단 헤더와 불필요한 클라우드 뱃지만 깔끔하게 숨김
+# Streamlit 기본 상단 헤더 및 불필요한 UI 숨김
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
@@ -24,14 +24,14 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 st.title("🛡️ 밀폐공간 현장 센서 데이터 수집기")
 st.markdown("측정 중에는 모든 버튼이 비활성화되며, **[측정 중지] 버튼을 빠르게 3번** 눌러야 안전하게 종료됩니다.")
 
-# 데이터 수집용 HTML/JavaScript 컴포넌트
+# 데이터 수집용 HTML/JavaScript 컴포넌트 (가속도 + 각속도 수집)
 collector_html = """
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Sensor Collector</title>
+    <title>Secure Motion Sensor Collector</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -85,9 +85,9 @@ collector_html = """
             padding: 12px;
             border-radius: 6px;
             font-family: monospace;
-            font-size: 0.85em;
+            font-size: 0.8em;
             margin-top: 15px;
-            max-height: 160px;
+            max-height: 180px;
             overflow-y: auto;
             border: 1px solid #e2e8f0;
         }
@@ -96,7 +96,7 @@ collector_html = """
 <body>
 
 <div class="container">
-    <h3>🔒 잠금 모드 센서 로거</h3>
+    <h3>🔒 모션 센서 로거 (가속도 + 각속도)</h3>
     <p id="guideText" style="font-size: 0.9em; color: #64748b;">시작 후 다른 버튼은 모두 잠깁니다.</p>
 
     <div id="statusBox" class="status-box">
@@ -116,7 +116,6 @@ collector_html = """
 <script>
     let isRecording = false;
     let logData = [];
-    let currentPressure = 1013.25;
     let wakeLock = null;
 
     // 트리플 탭(빠른 3번 클릭) 감지 변수
@@ -162,7 +161,7 @@ collector_html = """
         
         let box = document.getElementById('statusBox');
         box.className = "status-box recording";
-        box.innerHTML = "상태: 🔴 데이터 수집 중 (안전 잠금)";
+        box.innerHTML = "상태: 🔴 데이터 수집 중 (가속도+각속도)";
 
         window.addEventListener('devicemotion', handleMotion);
     }
@@ -170,20 +169,27 @@ collector_html = """
     function handleMotion(event) {
         if (!isRecording) return;
 
-        let acc = event.accelerationIncludingGravity || event.acceleration;
-        let x = acc && acc.x !== null ? acc.x.toFixed(3) : 0;
-        let y = acc && acc.y !== null ? acc.y.toFixed(3) : 0;
-        let z = acc && acc.z !== null ? acc.z.toFixed(3) : 0;
-        let pressure = currentPressure.toFixed(2);
-
         let timestamp = new Date().toISOString();
 
-        logData.push({ timestamp, x, y, z, pressure });
+        // 가속도 (중력 포함)
+        let acc = event.accelerationIncludingGravity || event.acceleration;
+        let acc_x = acc && acc.x !== null ? acc.x.toFixed(3) : 0;
+        let acc_y = acc && acc.y !== null ? acc.y.toFixed(3) : 0;
+        let acc_z = acc && acc.z !== null ? acc.z.toFixed(3) : 0;
+
+        // 각속도 (Gyroscope - 회전 속도)
+        let rot = event.rotationRate;
+        let gyro_alpha = rot && rot.alpha !== null ? rot.alpha.toFixed(3) : 0;
+        let gyro_beta = rot && rot.beta !== null ? rot.beta.toFixed(3) : 0;
+        let gyro_gamma = rot && rot.gamma !== null ? rot.gamma.toFixed(3) : 0;
+
+        logData.push({ timestamp, acc_x, acc_y, acc_z, gyro_alpha, gyro_beta, gyro_gamma });
 
         document.getElementById('dataView').innerHTML = 
             `기록 건수: ${logData.length}건<br>` +
             `시간: ${timestamp.split('T')[1].slice(0,8)}<br>` +
-            `가속도 X: ${x} | Y: ${y} | Z: ${z}`;
+            `가속도 X:${acc_x} Y:${acc_y} Z:${acc_z}<br>` +
+            `각속도 α:${gyro_alpha} β:${gyro_beta} γ:${gyro_gamma}`;
     }
 
     // 트리플 탭(0.6초 이내에 3번 연속 터치)으로만 중지 작동
@@ -225,15 +231,15 @@ collector_html = """
             return;
         }
 
-        let csvContent = "data:text/csv;charset=utf-8,timestamp,acc_x,acc_y,acc_z,pressure\\n";
+        let csvContent = "data:text/csv;charset=utf-8,timestamp,acc_x,acc_y,acc_z,gyro_alpha,gyro_beta,gyro_gamma\\n";
         logData.forEach(row => {
-            csvContent += `${row.timestamp},${row.x},${row.y},${row.z},${row.pressure}\\n`;
+            csvContent += `${row.timestamp},${row.acc_x},${row.acc_y},${row.acc_z},${row.gyro_alpha},${row.gyro_beta},${row.gyro_gamma}\\n`;
         });
         
         let encodedUri = encodeURI(csvContent);
         let link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "smartphone_sensor_log_secure.csv");
+        link.setAttribute("download", "smartphone_motion_sensor_log.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -244,6 +250,6 @@ collector_html = """
 </html>
 """
 
-components.html(collector_html, height=380)
+components.html(collector_html, height=420)
 
-st.info("💡 **안전 수집 가이드**\n1. **화면 정상 출력**: 레이아웃을 깨트리던 과도한 CSS를 제거하여 대시보드 화면이 정상적으로 나타납니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
+st.info("💡 **확장 센서 수집 가이드**\n1. **데이터 항목**: 가속도 3축(`acc_x, y, z`)과 회전 각속도 3축(`gyro_alpha, beta, gamma`)이 함께 수집됩니다.\n2. **안전 장치**: 안내 유도 기능과 함께 **[측정 중지] 버튼을 0.6초 내에 빠르게 3번** 연타해야 종료되므로 현장 테스트 시 공백 없이 안전하게 수집할 수 있습니다.")
