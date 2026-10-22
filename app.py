@@ -1,11 +1,29 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="밀폐공간 안전 데이터 수집기 (잠금 모드)", page_icon="🛡️", layout="centered")
+# 페이지 설정
+st.set_page_config(
+    page_title="밀폐공간 안전 데이터 수집기", 
+    page_icon="🛡️", 
+    layout="centered"
+)
+
+# 🛠️ [핵심 수정] Streamlit 기본 상단 헤더, 삼선 메뉴, GitHub, Fork, Deploy 버튼을 화면에서 완전 숨김 처리
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppDeployButton {display: none;}
+    [data-testid="stHeader"] {display: none;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 st.title("🛡️ 밀폐공간 현장 센서 데이터 수집기")
 st.markdown("측정 중에는 모든 버튼이 비활성화되며, **[측정 중지] 버튼을 빠르게 3번** 눌러야 안전하게 종료됩니다.")
 
+# 데이터 수집용 HTML/JavaScript 컴포넌트 (트리플 탭 및 잠금 모드 적용)
 collector_html = """
 <!DOCTYPE html>
 <html lang="ko">
@@ -84,7 +102,7 @@ collector_html = """
         상태: 대기 중
     </div>
 
-    <!-- 모든 제어 버튼 (측정 중에는 중지 버튼 외 모두 비활성화됨) -->
+    <!-- 제어 버튼 (측정 중에는 중지 버튼 외 모두 숨김/비활성화) -->
     <button id="startBtn" onclick="requestSensors()">1. 권한 허용 및 측정 시작</button>
     <button id="stopBtn" onclick="handleTripleTap()" class="stop-btn" style="display:none;" disabled>⚠️ 측정 중지 (빠르게 3번 누르세요)</button>
     <button id="downloadBtn" onclick="downloadCSV()" class="download-btn" style="display:none;">3. CSV 파일 다운로드</button>
@@ -133,11 +151,11 @@ collector_html = """
         
         await requestWakeLock();
 
-        // UI 상태 전환: 시작 버튼 숨김, 중지 버튼 활성화 (다른 버튼 원천 차단)
+        // UI 상태 전환: 시작 버튼 숨김, 중지 버튼 활성화
         document.getElementById('startBtn').style.display = 'none';
         let stopBtn = document.getElementById('stopBtn');
         stopBtn.style.display = 'block';
-        stopBtn.disabled = false; // 측정 중에는 오직 이 버튼만 유효 (단, 트리플 탭 필요)
+        stopBtn.disabled = false;
         
         document.getElementById('downloadBtn').style.display = 'none';
         document.getElementById('guideText').innerText = "🔒 측정 중: 주머니 속 오작동 방지 잠금 활성화됨";
@@ -168,19 +186,18 @@ collector_html = """
             `가속도 X: ${x} | Y: ${y} | Z: ${z}`;
     }
 
-    // 트리플 탭(3번 연속 터치)으로만 중지가 작동하도록 설계
+    // 트리플 탭(0.6초 이내에 3번 연속 터치)으로만 중지 작동
     function handleTripleTap() {
         tapCount++;
         
         if (tapCount === 1) {
-            // 첫 탭 발생 시 0.6초 안에 3번을 채워야 함
             tapTimer = setTimeout(() => {
-                tapCount = 0; // 시간 초과 시 초기화
+                tapCount = 0;
             }, 600);
         } else if (tapCount === 3) {
             clearTimeout(tapTimer);
             tapCount = 0;
-            stopRecording(); // 3번 채워지면 비로소 측정 종료 실행
+            stopRecording();
         }
     }
 
@@ -229,4 +246,4 @@ collector_html = """
 
 components.html(collector_html, height=380)
 
-st.info("💡 **안전 수집 가이드**\n1. **버튼 잠금**: 측정 시작과 동시에 다른 모든 불필요한 컨트롤이 숨겨지거나 비활성화됩니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
+st.info("💡 **안전 수집 가이드**\n1. **메뉴 숨김**: Streamlit 기본 상단 헤더, 삼선 메뉴, GitHub 및 Fork 버튼이 화면에서 완전히 제거되어 터치되지 않습니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
