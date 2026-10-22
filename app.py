@@ -1,10 +1,10 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="밀폐공간 안전 데이터 수집기 (백그라운드 지원)", page_icon="📊", layout="centered")
+st.set_page_config(page_title="밀폐공간 안전 데이터 수집기 (잠금 모드)", page_icon="🛡️", layout="centered")
 
-st.title("📊 밀폐공간 작업자 센서 데이터 수집기")
-st.markdown("화면을 끄거나 브라우저를 내려도 **백그라운드에서 센서 데이터가 연속 수집**됩니다.")
+st.title("🛡️ 밀폐공간 현장 센서 데이터 수집기")
+st.markdown("측정 중에는 모든 버튼이 비활성화되며, **[측정 중지] 버튼을 빠르게 3번** 눌러야 안전하게 종료됩니다.")
 
 collector_html = """
 <!DOCTYPE html>
@@ -12,7 +12,7 @@ collector_html = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Background Sensor Collector</title>
+    <title>Secure Sensor Collector</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -30,10 +30,10 @@ collector_html = """
         }
         h3 { color: #1e293b; margin-top: 0; }
         .status-box {
-            padding: 12px;
+            padding: 15px;
             border-radius: 8px;
             font-weight: bold;
-            font-size: 1.05em;
+            font-size: 1.1em;
             margin: 15px 0;
             background-color: #e2e8f0;
             color: #475569;
@@ -43,15 +43,21 @@ collector_html = """
             background-color: #2563eb;
             color: white;
             border: none;
-            padding: 12px 20px;
-            font-size: 1em;
+            padding: 14px 20px;
+            font-size: 1.05em;
             border-radius: 6px;
             cursor: pointer;
             width: 100%;
             margin-top: 10px;
             font-weight: bold;
+            transition: background 0.2s;
         }
-        button:active { background-color: #1d4ed8; }
+        button:disabled {
+            background-color: #cbd5e1 !important;
+            color: #94a3b8 !important;
+            cursor: not-allowed;
+        }
+        button:active:not(:disabled) { background-color: #1d4ed8; }
         .stop-btn { background-color: #dc2626; }
         .download-btn { background-color: #059669; }
         .data-display {
@@ -71,16 +77,17 @@ collector_html = """
 <body>
 
 <div class="container">
-    <h3>📱 백그라운드 센서 로거</h3>
-    <p style="font-size: 0.9em; color: #64748b;">측정 시작 후 주머니에 넣거나 화면을 꺼도 기록됩니다.</p>
+    <h3>🔒 잠금 모드 센서 로거</h3>
+    <p id="guideText" style="font-size: 0.9em; color: #64748b;">시작 후 다른 버튼은 모두 잠깁니다.</p>
 
     <div id="statusBox" class="status-box">
         상태: 대기 중
     </div>
 
-    <button id="permissionBtn" onclick="requestSensors()">1. 센서 권한 허용 및 기록 시작</button>
-    <button id="recordBtn" onclick="stopRecording()" style="display:none;" class="stop-btn">2. 기록 중지</button>
-    <button id="downloadBtn" onclick="downloadCSV()" style="display:none;" class="download-btn">3. CSV 파일 다운로드</button>
+    <!-- 모든 제어 버튼 (측정 중에는 중지 버튼 외 모두 비활성화됨) -->
+    <button id="startBtn" onclick="requestSensors()">1. 권한 허용 및 측정 시작</button>
+    <button id="stopBtn" onclick="handleTripleTap()" class="stop-btn" style="display:none;" disabled>⚠️ 측정 중지 (빠르게 3번 누르세요)</button>
+    <button id="downloadBtn" onclick="downloadCSV()" class="download-btn" style="display:none;">3. CSV 파일 다운로드</button>
 
     <div class="data-display" id="dataView">
         [실시간 센서 값 대기 중...]
@@ -93,38 +100,27 @@ collector_html = """
     let currentPressure = 1013.25;
     let wakeLock = null;
 
-    // 화면 꺼짐 방지 (Wake Lock API)
+    // 트리플 탭(빠른 3번 클릭) 감지 변수
+    let tapCount = 0;
+    let tapTimer = null;
+
+    // 화면 꺼짐 방지 (Wake Lock)
     async function requestWakeLock() {
         if ('wakeLock' in navigator) {
             try {
                 wakeLock = await navigator.wakeLock.request('screen');
-                console.log('Wake Lock 활성화됨');
-                wakeLock.addEventListener('release', () => {
-                    console.log('Wake Lock 해제됨');
-                });
             } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
+                console.error(err);
             }
         }
     }
 
-    // 페이지가 다시 활성화되었을 때 Wake Lock 재요청
-    document.addEventListener('visibilitychange', async () => {
-        if (wakeLock !== null && document.visibilityState === 'visible' && isRecording) {
-            await requestWakeLock();
-        }
-    });
-
     function requestSensors() {
-        // iOS 권한 요청 처리
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
             DeviceMotionEvent.requestPermission()
                 .then(response => {
-                    if (response === 'granted') {
-                        startMonitoring();
-                    } else {
-                        alert("센서 권한이 거부되었습니다.");
-                    }
+                    if (response === 'granted') { startMonitoring(); }
+                    else { alert("센서 권한이 거부되었습니다."); }
                 }).catch(console.error);
         } else {
             startMonitoring();
@@ -135,29 +131,20 @@ collector_html = """
         isRecording = true;
         logData = [];
         
-        // 화면 꺼짐 방지 요청
         await requestWakeLock();
 
-        document.getElementById('permissionBtn').style.display = 'none';
-        document.getElementById('recordBtn').style.display = 'block';
+        // UI 상태 전환: 시작 버튼 숨김, 중지 버튼 활성화 (다른 버튼 원천 차단)
+        document.getElementById('startBtn').style.display = 'none';
+        let stopBtn = document.getElementById('stopBtn');
+        stopBtn.style.display = 'block';
+        stopBtn.disabled = false; // 측정 중에는 오직 이 버튼만 유효 (단, 트리플 탭 필요)
+        
         document.getElementById('downloadBtn').style.display = 'none';
+        document.getElementById('guideText').innerText = "🔒 측정 중: 주머니 속 오작동 방지 잠금 활성화됨";
         
         let box = document.getElementById('statusBox');
         box.className = "status-box recording";
-        box.innerHTML = "상태: 🔴 백그라운드 수집 중...";
-
-        // 기압 센서 연동
-        if ('Barometer' in window) {
-            try {
-                const barometer = new Barometer({ frequency: 1 });
-                barometer.addEventListener('reading', () => {
-                    currentPressure = barometer.pressure;
-                });
-                barometer.start();
-            } catch (e) {
-                console.log("Barometer API not supported.");
-            }
-        }
+        box.innerHTML = "상태: 🔴 데이터 수집 중 (안전 잠금)";
 
         window.addEventListener('devicemotion', handleMotion);
     }
@@ -173,29 +160,42 @@ collector_html = """
 
         let timestamp = new Date().toISOString();
 
-        // 데이터 로그 적재
         logData.push({ timestamp, x, y, z, pressure });
 
-        // 화면 갱신 (화면이 켜져있을 때만 반영됨)
         document.getElementById('dataView').innerHTML = 
             `기록 건수: ${logData.length}건<br>` +
             `시간: ${timestamp.split('T')[1].slice(0,8)}<br>` +
-            `가속도 X: ${x} | Y: ${y} | Z: ${z}<br>` +
-            `기압: ${pressure} hPa`;
+            `가속도 X: ${x} | Y: ${y} | Z: ${z}`;
+    }
+
+    // 트리플 탭(3번 연속 터치)으로만 중지가 작동하도록 설계
+    function handleTripleTap() {
+        tapCount++;
+        
+        if (tapCount === 1) {
+            // 첫 탭 발생 시 0.6초 안에 3번을 채워야 함
+            tapTimer = setTimeout(() => {
+                tapCount = 0; // 시간 초과 시 초기화
+            }, 600);
+        } else if (tapCount === 3) {
+            clearTimeout(tapTimer);
+            tapCount = 0;
+            stopRecording(); // 3번 채워지면 비로소 측정 종료 실행
+        }
     }
 
     function stopRecording() {
         isRecording = false;
         window.removeEventListener('devicemotion', handleMotion);
         
-        // Wake Lock 해제
         if (wakeLock !== null) {
             wakeLock.release();
             wakeLock = null;
         }
 
-        document.getElementById('recordBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'none';
         document.getElementById('downloadBtn').style.display = 'block';
+        document.getElementById('guideText').innerText = "측정이 완료되었습니다. 파일을 다운로드하세요.";
         
         let box = document.getElementById('statusBox');
         box.className = "status-box";
@@ -216,7 +216,7 @@ collector_html = """
         let encodedUri = encodeURI(csvContent);
         let link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "smartphone_sensor_log_bg.csv");
+        link.setAttribute("download", "smartphone_sensor_log_secure.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -227,6 +227,6 @@ collector_html = """
 </html>
 """
 
-components.html(collector_html, height=360)
+components.html(collector_html, height=380)
 
-st.info("💡 **백그라운드 수집 안내**\n1. **Screen Wake Lock API**가 적용되어 측정 중에는 화면이 임의로 꺼지는 현상을 방지합니다.\n2. 작업 중 주머니에 넣거나 브라우저를 내려도 센서 이벤트(`devicemotion`)가 발생하는 동안 데이터가 메모리에 안전하게 누적됩니다.\n3. 작업 완료 후 화면을 켜고 **[기록 중지]** 및 **[CSV 파일 다운로드]**를 진행해 주세요.")
+st.info("💡 **안전 수집 가이드**\n1. **버튼 잠금**: 측정 시작과 동시에 다른 모든 불필요한 컨트롤이 숨겨지거나 비활성화됩니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
