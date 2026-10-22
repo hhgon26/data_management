@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 
 # 페이지 설정
 st.set_page_config(
-    page_title="밀폐공간 안전 센서 수집기 (가속도+각속도)", 
+    page_title="밀폐공간 안전 센서 수집기 (KST 적용)", 
     page_icon="🛡️", 
     layout="centered"
 )
@@ -24,14 +24,14 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 st.title("🛡️ 밀폐공간 현장 센서 데이터 수집기")
 st.markdown("측정 중에는 모든 버튼이 비활성화되며, **[측정 중지] 버튼을 빠르게 3번** 눌러야 안전하게 종료됩니다.")
 
-# 데이터 수집용 HTML/JavaScript 컴포넌트 (가속도 + 각속도 수집)
+# 데이터 수집용 HTML/JavaScript 컴포넌트 (KST 타임스탬프 적용)
 collector_html = """
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Motion Sensor Collector</title>
+    <title>Secure Motion Sensor Collector (KST)</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -96,7 +96,7 @@ collector_html = """
 <body>
 
 <div class="container">
-    <h3>🔒 모션 센서 로거 (가속도 + 각속도)</h3>
+    <h3>🔒 모션 센서 로거 (KST 기준)</h3>
     <p id="guideText" style="font-size: 0.9em; color: #64748b;">시작 후 다른 버튼은 모두 잠깁니다.</p>
 
     <div id="statusBox" class="status-box">
@@ -161,15 +161,24 @@ collector_html = """
         
         let box = document.getElementById('statusBox');
         box.className = "status-box recording";
-        box.innerHTML = "상태: 🔴 데이터 수집 중 (가속도+각속도)";
+        box.innerHTML = "상태: 🔴 데이터 수집 중 (KST 기준)";
 
         window.addEventListener('devicemotion', handleMotion);
+    }
+
+    // 대한민국 표준시(KST) 문자열을 생성하는 함수
+    function getKSTTimestamp() {
+        const now = new Date();
+        // UTC 시간에 9시간(밀리초 기준)을 더해 KST로 보정
+        const kstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+        return kstDate.toISOString().replace('Z', '+09:00');
     }
 
     function handleMotion(event) {
         if (!isRecording) return;
 
-        let timestamp = new Date().toISOString();
+        // KST 기준 타임스탬프 생성
+        let timestamp = getKSTTimestamp();
 
         // 가속도 (중력 포함)
         let acc = event.accelerationIncludingGravity || event.acceleration;
@@ -187,7 +196,7 @@ collector_html = """
 
         document.getElementById('dataView').innerHTML = 
             `기록 건수: ${logData.length}건<br>` +
-            `시간: ${timestamp.split('T')[1].slice(0,8)}<br>` +
+            `시간(KST): ${timestamp.split('T')[1].slice(0,8)}<br>` +
             `가속도 X:${acc_x} Y:${acc_y} Z:${acc_z}<br>` +
             `각속도 α:${gyro_alpha} β:${gyro_beta} γ:${gyro_gamma}`;
     }
@@ -239,7 +248,7 @@ collector_html = """
         let encodedUri = encodeURI(csvContent);
         let link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "smartphone_motion_sensor_log.csv");
+        link.setAttribute("download", "smartphone_motion_sensor_kst.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -252,4 +261,4 @@ collector_html = """
 
 components.html(collector_html, height=420)
 
-st.info("💡 **확장 센서 수집 가이드**\n1. **데이터 항목**: 가속도 3축(`acc_x, y, z`)과 회전 각속도 3축(`gyro_alpha, beta, gamma`)이 함께 수집됩니다.\n2. **안전 장치**: 안내 유도 기능과 함께 **[측정 중지] 버튼을 0.6초 내에 빠르게 3번** 연타해야 종료되므로 현장 테스트 시 공백 없이 안전하게 수집할 수 있습니다.")
+st.info("💡 **KST 수집 가이드**\n1. **타임스탬프 동기화**: 이제 수집 단계부터 대한민국 표준시(KST)로 기록되어, 복합가스측정기 데이터와 바로 일치시킬 수 있습니다.\n2. **안전 장치**: **[측정 중지] 버튼을 0.6초 내에 빠르게 3번** 연타해야 종료됩니다.")
