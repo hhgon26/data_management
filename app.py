@@ -8,7 +8,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# 🛠️ [핵심 수정] Streamlit 기본 상단 헤더, 삼선 메뉴, GitHub, Fork, Deploy 버튼을 화면에서 완전 숨김 처리
+# 🛠️ [핵심 수정] Streamlit 기본 상단 헤더, 삼선 메뉴, 왕관(Manage app), Share 아이콘 완전 숨김 처리
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
@@ -16,6 +16,9 @@ hide_streamlit_style = """
     footer {visibility: hidden;}
     .stAppDeployButton {display: none;}
     [data-testid="stHeader"] {display: none;}
+    [data-testid="stToolbar"] {display: none;}
+    .viewerBadge_container__1QSob {display: none;}
+    button[kind="header"] {display: none;}
     </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -246,4 +249,4 @@ collector_html = """
 
 components.html(collector_html, height=380)
 
-st.info("💡 **안전 수집 가이드**\n1. **메뉴 숨김**: Streamlit 기본 상단 헤더, 삼선 메뉴, GitHub 및 Fork 버튼이 화면에서 완전히 제거되어 터치되지 않습니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
+st.info("💡 **안전 수집 가이드**\n1. **메뉴 숨김**: Streamlit 기본 상단 헤더, 왕관 아이콘, Share 버튼 및 삼선 메뉴가 화면에서 완전히 제거되어 터치되지 않습니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
