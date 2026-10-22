@@ -8,7 +8,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# 🛠️ [핵심 수정] Streamlit 기본 상단 헤더, 왕관(Manage app), 하단 배포 뱃지(Hosted with Streamlit) 완전 숨김 및 터치 차단
+# 🛠️ [안전한 숨김 스타일] 화면 전체를 날리지 않고 상단 헤더와 불필요한 클라우드 뱃지만 깔끔하게 숨김
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
@@ -17,20 +17,6 @@ hide_streamlit_style = """
     .stAppDeployButton {display: none;}
     [data-testid="stHeader"] {display: none;}
     [data-testid="stToolbar"] {display: none;}
-    .viewerBadge_container__1QSob {display: none !important;}
-    button[kind="header"] {display: none !important;}
-    
-    /* 우측 하단 Hosted with Streamlit 및 왕관/공유 뱃지 강제 숨김 및 클릭 방지 */
-    div[data-testid="stStatusWidget"] {visibility: hidden; display: none;}
-    #root > div:last-child {display: none !important;}
-    .reportview-container .main footer {visibility: hidden;}
-    
-    /* Streamlit Cloud 기본 하단 뱃지 전체 무력화 */
-    footer, .viewerBadge_link__qRIco, a[href*="streamlit.io/cloud"] {
-        display: none !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-    }
     </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -38,7 +24,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 st.title("🛡️ 밀폐공간 현장 센서 데이터 수집기")
 st.markdown("측정 중에는 모든 버튼이 비활성화되며, **[측정 중지] 버튼을 빠르게 3번** 눌러야 안전하게 종료됩니다.")
 
-# 데이터 수집용 HTML/JavaScript 컴포넌트 (트리플 탭 및 잠금 모드 적용)
+# 데이터 수집용 HTML/JavaScript 컴포넌트
 collector_html = """
 <!DOCTYPE html>
 <html lang="ko">
@@ -117,7 +103,7 @@ collector_html = """
         상태: 대기 중
     </div>
 
-    <!-- 제어 버튼 (측정 중에는 중지 버튼 외 모두 숨김/비활성화) -->
+    <!-- 제어 버튼 -->
     <button id="startBtn" onclick="requestSensors()">1. 권한 허용 및 측정 시작</button>
     <button id="stopBtn" onclick="handleTripleTap()" class="stop-btn" style="display:none;" disabled>⚠️ 측정 중지 (빠르게 3번 누르세요)</button>
     <button id="downloadBtn" onclick="downloadCSV()" class="download-btn" style="display:none;">3. CSV 파일 다운로드</button>
@@ -166,7 +152,6 @@ collector_html = """
         
         await requestWakeLock();
 
-        // UI 상태 전환: 시작 버튼 숨김, 중지 버튼 활성화
         document.getElementById('startBtn').style.display = 'none';
         let stopBtn = document.getElementById('stopBtn');
         stopBtn.style.display = 'block';
@@ -261,4 +246,4 @@ collector_html = """
 
 components.html(collector_html, height=380)
 
-st.info("💡 **안전 수집 가이드**\n1. **메뉴 및 뱃지 숨김**: Streamlit 기본 상단 헤더, 왕관 아이콘, 하단 'Hosted with Streamlit' 뱃지 영역이 완전히 숨겨지고 터치가 차단됩니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
+st.info("💡 **안전 수집 가이드**\n1. **화면 정상 출력**: 레이아웃을 깨트리던 과도한 CSS를 제거하여 대시보드 화면이 정상적으로 나타납니다.\n2. **트리플 탭 방어**: 실수로 한 번 터치되거나 주머니 속에서 눌려 조기에 종료되는 것을 막기 위해, **[측정 중지] 버튼을 0.6초 안에 빠르게 3번** 연타해야만 데이터 수집이 안전하게 종료됩니다.")
